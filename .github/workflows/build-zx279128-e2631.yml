@@ -70,11 +70,32 @@ jobs:
             openwrt/build_dir/toolchain-*
           key: ${{ runner.os }}-openwrt-${{ env.OPENWRT_COMMIT }}-zx279128-toolchain-v1
 
+      - name: Preflight Linux target
+        working-directory: openwrt
+        run: |
+          set -o pipefail
+          if make -j2 target/linux/compile V=s > ../build.log 2>&1; then
+            :
+          else
+            status=$?
+            echo "::error::Linux target preflight failed with exit code ${status}"
+            echo "::group::Last 500 lines from parallel preflight"
+            tail -n 500 ../build.log || true
+            echo "::endgroup::"
+            echo "::group::Retry single-threaded to expose the first real error"
+            make -j1 target/linux/compile V=s >> ../build.log 2>&1 || {
+              retry_status=$?
+              tail -n 800 ../build.log || true
+              exit ${retry_status}
+            }
+            echo "::endgroup::"
+          fi
+
       - name: Build initramfs image
         working-directory: openwrt
         run: |
           set -o pipefail
-          if make -j2 V=s > ../build.log 2>&1; then
+          if make -j2 V=s >> ../build.log 2>&1; then
             :
           else
             status=$?
@@ -82,13 +103,7 @@ jobs:
             echo "::group::Last 500 lines from parallel build"
             tail -n 500 ../build.log || true
             echo "::endgroup::"
-            echo "::group::Retry single-threaded to expose the first real error"
-            make -j1 V=s >> ../build.log 2>&1 || {
-              retry_status=$?
-              tail -n 800 ../build.log || true
-              exit ${retry_status}
-            }
-            echo "::endgroup::"
+            exit ${status}
           fi
           find bin/targets/zx279128 -maxdepth 5 -type f | sort | tee ../artifacts.txt
 
