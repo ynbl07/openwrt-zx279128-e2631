@@ -73,14 +73,34 @@ jobs:
       - name: Preflight Linux target
         working-directory: openwrt
         run: |
-          set +o pipefail
-          yes '' | make -j1 target/linux/compile V=s > ../build.log 2>&1
-          status=${PIPESTATUS[1]}
-          set -o pipefail
+          set +e
+          make -j1 target/linux/compile V=s > ../build.log 2>&1
+          status=$?
+          set -e
 
-          kernel_config=$(find build_dir -path '*/linux-zx279128_*/linux-*/.config' -type f -print -quit)
-          if [ -n "${kernel_config}" ]; then
-            cp "${kernel_config}" ../kernel.config
+          kernel_dir=$(find build_dir -path '*/linux-zx279128_*/linux-*' -type d -print -quit)
+          if [ "${status}" -ne 0 ] && [ -n "${kernel_dir}" ]; then
+            cross_gcc=$(find staging_dir -path '*/bin/arm-openwrt-linux-muslgnueabi-gcc' -print -quit)
+            cross_prefix=${cross_gcc%gcc}
+            echo "::group::Complete new Kconfig defaults with olddefconfig"
+            set +e
+            make -C "${kernel_dir}" ARCH=arm CROSS_COMPILE="${cross_prefix}" olddefconfig >> ../build.log 2>&1
+            defaults_status=$?
+            set -e
+            echo "::endgroup::"
+
+            if [ "${defaults_status}" -eq 0 ]; then
+              set +e
+              make -j1 target/linux/compile V=s >> ../build.log 2>&1
+              status=$?
+              set -e
+            else
+              status=${defaults_status}
+            fi
+          fi
+
+          if [ -n "${kernel_dir}" ] && [ -f "${kernel_dir}/.config" ]; then
+            cp "${kernel_dir}/.config" ../kernel.config
           fi
 
           if [ "${status}" -ne 0 ]; then
@@ -94,10 +114,10 @@ jobs:
       - name: Build initramfs image
         working-directory: openwrt
         run: |
-          set +o pipefail
-          yes '' | make -j2 V=s >> ../build.log 2>&1
-          status=${PIPESTATUS[1]}
-          set -o pipefail
+          set +e
+          make -j2 V=s >> ../build.log 2>&1
+          status=$?
+          set -e
           if [ "${status}" -ne 0 ]; then
             echo "::error::Build failed with exit code ${status}"
             echo "::group::Last 500 lines from parallel build"
