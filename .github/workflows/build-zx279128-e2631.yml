@@ -29,6 +29,14 @@ jobs:
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
+      - name: Add swap
+        run: |
+          sudo fallocate -l 4G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          free -h
+
       - name: Configure target
         working-directory: openwrt
         run: |
@@ -43,8 +51,23 @@ jobs:
         working-directory: openwrt
         run: |
           set -o pipefail
-          make -j$(nproc) V=s 2>&1 | tee ../build.log
-          find bin/targets/zx279128 -maxdepth 3 -type f | sort | tee ../artifacts.txt
+          if make -j2 V=s > ../build.log 2>&1; then
+            :
+          else
+            status=$?
+            echo "::error::Build failed with exit code ${status}"
+            echo "::group::Last 500 lines from parallel build"
+            tail -n 500 ../build.log || true
+            echo "::endgroup::"
+            echo "::group::Retry single-threaded to expose the first real error"
+            make -j1 V=s >> ../build.log 2>&1 || {
+              retry_status=$?
+              tail -n 800 ../build.log || true
+              exit ${retry_status}
+            }
+            echo "::endgroup::"
+          fi
+          find bin/targets/zx279128 -maxdepth 5 -type f | sort | tee ../artifacts.txt
 
       - name: Upload build output
         if: always()
