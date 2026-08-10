@@ -3,6 +3,9 @@ name: Build ZTE E2631 initramfs
 on:
   workflow_dispatch:
 
+env:
+  OPENWRT_COMMIT: 486b4a4b3ede480635a185234fc624c969426f13
+
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -20,7 +23,10 @@ jobs:
 
       - name: Clone OpenWrt
         run: |
-          git clone --depth 1 https://github.com/openwrt/openwrt.git openwrt
+          git init openwrt
+          git -C openwrt remote add origin https://github.com/openwrt/openwrt.git
+          git -C openwrt fetch --depth 1 origin "${OPENWRT_COMMIT}"
+          git -C openwrt checkout --detach FETCH_HEAD
           cp -a target/linux/zx279128 openwrt/target/linux/
 
       - name: Prepare feeds
@@ -46,8 +52,23 @@ jobs:
           CONFIG_TARGET_zx279128=y
           CONFIG_TARGET_zx279128_DEVICE_zte_e2631=y
           CONFIG_TARGET_ROOTFS_INITRAMFS=y
+          # CONFIG_GDB is not set
           EOF
           make defconfig
+
+      - name: Restore OpenWrt host and toolchain cache
+        id: build-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            openwrt/dl
+            openwrt/staging_dir/host
+            openwrt/staging_dir/hostpkg
+            openwrt/staging_dir/toolchain-*
+            openwrt/build_dir/host
+            openwrt/build_dir/hostpkg
+            openwrt/build_dir/toolchain-*
+          key: ${{ runner.os }}-openwrt-${{ env.OPENWRT_COMMIT }}-zx279128-toolchain-v1
 
       - name: Build initramfs image
         working-directory: openwrt
@@ -70,6 +91,20 @@ jobs:
             echo "::endgroup::"
           fi
           find bin/targets/zx279128 -maxdepth 5 -type f | sort | tee ../artifacts.txt
+
+      - name: Save OpenWrt host and toolchain cache
+        if: always() && steps.build-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            openwrt/dl
+            openwrt/staging_dir/host
+            openwrt/staging_dir/hostpkg
+            openwrt/staging_dir/toolchain-*
+            openwrt/build_dir/host
+            openwrt/build_dir/hostpkg
+            openwrt/build_dir/toolchain-*
+          key: ${{ steps.build-cache.outputs.cache-primary-key }}
 
       - name: Upload build output
         if: always()
