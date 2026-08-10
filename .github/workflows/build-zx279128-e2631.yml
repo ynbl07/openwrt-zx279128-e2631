@@ -50,7 +50,8 @@ jobs:
         run: |
           cat > .config <<'EOF'
           CONFIG_TARGET_zx279128=y
-          CONFIG_TARGET_zx279128_DEVICE_zte_e2631=y
+          CONFIG_TARGET_zx279128_generic=y
+          CONFIG_TARGET_zx279128_generic_DEVICE_zte_e2631=y
           CONFIG_TARGET_ROOTFS_INITRAMFS=y
           # CONFIG_GDB is not set
           EOF
@@ -126,6 +127,15 @@ jobs:
             exit ${status}
           fi
           find bin/targets/zx279128 -maxdepth 5 -type f | sort | tee ../artifacts.txt
+
+          image=$(find bin/targets/zx279128 -type f -name '*zte_e2631-initramfs-uImage' -print -quit)
+          if [ -z "${image}" ]; then
+            echo "::error::Build completed without the E2631 initramfs uImage"
+            exit 1
+          fi
+          file "${image}"
+          sha256sum "${image}"
+          staging_dir/host/bin/mkimage -l "${image}"
 
       - name: Save OpenWrt host and toolchain cache
         if: always() && steps.build-cache.outputs.cache-hit != 'true'
