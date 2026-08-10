@@ -73,32 +73,32 @@ jobs:
       - name: Preflight Linux target
         working-directory: openwrt
         run: |
+          set +o pipefail
+          yes '' | make -j1 target/linux/compile V=s > ../build.log 2>&1
+          status=${PIPESTATUS[1]}
           set -o pipefail
-          if make -j2 target/linux/compile V=s > ../build.log 2>&1; then
-            :
-          else
-            status=$?
+
+          kernel_config=$(find build_dir -path '*/linux-zx279128_*/linux-*/.config' -type f -print -quit)
+          if [ -n "${kernel_config}" ]; then
+            cp "${kernel_config}" ../kernel.config
+          fi
+
+          if [ "${status}" -ne 0 ]; then
             echo "::error::Linux target preflight failed with exit code ${status}"
-            echo "::group::Last 500 lines from parallel preflight"
-            tail -n 500 ../build.log || true
+            echo "::group::Last 1200 lines from Linux target preflight"
+            tail -n 1200 ../build.log || true
             echo "::endgroup::"
-            echo "::group::Retry single-threaded to expose the first real error"
-            make -j1 target/linux/compile V=s >> ../build.log 2>&1 || {
-              retry_status=$?
-              tail -n 800 ../build.log || true
-              exit ${retry_status}
-            }
-            echo "::endgroup::"
+            exit "${status}"
           fi
 
       - name: Build initramfs image
         working-directory: openwrt
         run: |
+          set +o pipefail
+          yes '' | make -j2 V=s >> ../build.log 2>&1
+          status=${PIPESTATUS[1]}
           set -o pipefail
-          if make -j2 V=s >> ../build.log 2>&1; then
-            :
-          else
-            status=$?
+          if [ "${status}" -ne 0 ]; then
             echo "::error::Build failed with exit code ${status}"
             echo "::group::Last 500 lines from parallel build"
             tail -n 500 ../build.log || true
@@ -129,5 +129,6 @@ jobs:
           path: |
             build.log
             artifacts.txt
+            kernel.config
             openwrt/bin/targets/zx279128/**
           if-no-files-found: warn
