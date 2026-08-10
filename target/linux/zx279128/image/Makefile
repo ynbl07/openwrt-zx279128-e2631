@@ -6,7 +6,9 @@ include $(INCLUDE_DIR)/image.mk
 define Device/zte_e2631
   DEVICE_VENDOR := ZTE
   DEVICE_MODEL := E2631
-  DEVICE_DTS := zte/zx279128s-e2631
+  DEVICE_DTS := zx279128s-e2631
+  DEVICE_DTS_DIR := $(DTS_DIR)/zte
+  KERNEL_NAME := zImage
   KERNEL_LOADADDR := 0x40008000
   KERNEL_ENTRY := 0x40008000
   KERNEL := kernel-bin | append-dtb | uImage none
