@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: OpenWrt bring-up <openwrt-bringup@example.invalid>
+Date: Mon, 10 Aug 2026 00:00:00 +0800
+Subject: [PATCH] ARM: dts: add ZTE ZX279128S E2631
+
+Register the E2631 board DTB for first-stage OpenWrt initramfs bring-up.
+
+Signed-off-by: OpenWrt bring-up <openwrt-bringup@example.invalid>
+---
+ arch/arm/boot/dts/Makefile | 1 +
+ 1 file changed, 1 insertion(+)
+
+--- a/arch/arm/boot/dts/Makefile
++++ b/arch/arm/boot/dts/Makefile
+@@ -1,3 +1,4 @@
++dtb-$(CONFIG_ARCH_MULTI_V7) += zte/zx279128s-e2631.dtb
+ 
+ subdir-y += actions
+ subdir-y += allwinner
