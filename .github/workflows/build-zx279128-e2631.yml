@@ -1,4 +1,4 @@
-name: Build ZTE E2631 kernel
+name: Build ZTE E2631 initramfs
 
 on:
   workflow_dispatch:
@@ -13,7 +13,10 @@ jobs:
       - name: Install build deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y             build-essential bison bzip2 ccache clang flex gawk gcc-multilib             gettext git libncurses-dev libssl-dev python3 rsync swig unzip             uuid-dev xz-utils zlib1g-dev file wget patch
+          sudo apt-get install -y \
+            build-essential bison bzip2 ccache clang flex gawk gcc-multilib \
+            gettext git libncurses-dev libssl-dev python3 rsync swig unzip \
+            uuid-dev xz-utils zlib1g-dev file wget patch
 
       - name: Clone OpenWrt
         run: |
@@ -32,17 +35,24 @@ jobs:
           cat > .config <<'EOF'
           CONFIG_TARGET_zx279128=y
           CONFIG_TARGET_zx279128_DEVICE_zte_e2631=y
+          CONFIG_TARGET_ROOTFS_INITRAMFS=y
           EOF
           make defconfig
 
-      - name: Build kernel
+      - name: Build initramfs image
         working-directory: openwrt
         run: |
-          make -j$(nproc) target/linux/compile V=s 2>&1 | tee ../build.log
+          set -o pipefail
+          make -j$(nproc) V=s 2>&1 | tee ../build.log
+          find bin/targets/zx279128 -maxdepth 3 -type f | sort | tee ../artifacts.txt
 
-      - name: Upload log
+      - name: Upload build output
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2631-build-log
-          path: build.log
+          name: e2631-openwrt-build-output
+          path: |
+            build.log
+            artifacts.txt
+            openwrt/bin/targets/zx279128/**
+          if-no-files-found: warn
