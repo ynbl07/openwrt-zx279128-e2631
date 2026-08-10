@@ -11,6 +11,7 @@ define Device/zte_e2631
   KERNEL_ENTRY := 0x40008000
   KERNEL := kernel-bin | append-dtb | uImage none
   KERNEL_INITRAMFS := kernel-bin | append-dtb | uImage none
+  KERNEL_INITRAMFS_SUFFIX := -uImage
   IMAGES :=
   DEVICE_PACKAGES :=
 endef
