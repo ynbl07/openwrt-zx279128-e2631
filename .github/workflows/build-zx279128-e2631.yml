@@ -7,6 +7,54 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     steps:
+      - name: Checkout E2631 scaffold
+        uses: actions/checkout@v4
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y             build-essential bison bzip2 ccache clang flex gawk gcc-multilib             gettext git libncurses-dev libssl-dev python3 rsync swig unzip             uuid-dev xz-utils zlib1g-dev file wget patch
+
+      - name: Clone OpenWrt
+        run: |
+          git clone --depth 1 https://github.com/openwrt/openwrt.git openwrt
+          cp -a target/linux/zx279128 openwrt/target/linux/
+
+      - name: Prepare feeds
+        working-directory: openwrt
+        run: |
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Configure target
+        working-directory: openwrt
+        run: |
+          cat > .config <<'EOF'
+          CONFIG_TARGET_zx279128=y
+          CONFIG_TARGET_zx279128_DEVICE_zte_e2631=y
+          EOF
+          make defconfig
+
+      - name: Build kernel
+        working-directory: openwrt
+        run: |
+          make -j$(nproc) target/linux/compile V=s 2>&1 | tee ../build.log
+
+      - name: Upload log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2631-build-log
+          path: build.log
+name: Build ZTE E2631 kernel
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
       - name: Checkout
         uses: actions/checkout@v4
 
