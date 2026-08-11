@@ -1,0 +1,10 @@
+--- a/drivers/amba/Kconfig
++++ b/drivers/amba/Kconfig
+@@ -1,6 +1,7 @@
+ # SPDX-License-Identifier: GPL-2.0
+ config ARM_AMBA
+ 	bool if ARM_AMBA
++	default y if ARCH_MULTI_V7
+ 
+ if ARM_AMBA
+ config TEGRA_AHB
