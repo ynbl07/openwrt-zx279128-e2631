@@ -112,6 +112,18 @@ jobs:
             exit "${status}"
           fi
 
+          if [ ! -f ../kernel.config ]; then
+            echo "::error::Final kernel configuration was not captured"
+            exit 1
+          fi
+
+          for option in CONFIG_ARM_AMBA CONFIG_ARM_APPENDED_DTB CONFIG_SERIAL_AMBA_PL011 CONFIG_SERIAL_AMBA_PL011_CONSOLE CONFIG_SERIAL_EARLYCON; do
+            if ! grep -qx "${option}=y" ../kernel.config; then
+              echo "::error::Required kernel option ${option}=y is missing"
+              exit 1
+            fi
+          done
+
       - name: Build initramfs image
         working-directory: openwrt
         run: |
